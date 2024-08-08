@@ -1,0 +1,114 @@
+---
+title: "NYPD Shooting Incident Data Report"
+author: "K. Veluri"
+date: "2024-07-23"
+output:
+  github_document: default
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(magrittr)
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+```
+
+## Reading the shooting project dataset in
+
+This shooting project dataset contains a record of each NYPD shooting incident. It includes the perpetrator's age, sex, and race, whether the incident was a statistical murder, and the longitude and latitude where the incident occurred. For this analysis, I am going to see which borough has the highest number of shooting incidents and compare the number of incidents over time. We are also going to try to find out if you can predict the number of shooting incidents, based on the race of the victim. 
+
+``` {r reading}
+nypd <- read.csv("https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD")
+```
+
+### Libraries Used:
+1. magrittr
+2. dplyr
+3. lubridate
+4. ggplot2
+
+## Summarizing my dataset
+
+``` {r summary}
+summary(nypd)
+```
+
+### Changing the OCCUR_DATE variable to a date type
+``` {r Occur_Date}
+nypd <- nypd %>% mutate(OCCUR_DATE = mdy(OCCUR_DATE))
+```
+
+### Changing the BORO, VIC_AGE_GROUP, VIC_SEX, and VIC_RACE columns to factor data types
+``` {r VIC_SEX}
+nypd$BORO <- as.factor(nypd$BORO)
+nypd$VIC_AGE_GROUP <- as.factor(nypd$VIC_AGE_GROUP)
+nypd$VIC_SEX <- as.factor(nypd$VIC_SEX)
+nypd$VIC_RACE <- as.factor(nypd$VIC_RACE)
+```
+
+### Getting rid of any uneeded columns
+
+```{r columns}
+nypd <- nypd %>% 
+  select(INCIDENT_KEY, OCCUR_DATE, OCCUR_TIME, 
+         BORO, PRECINCT, STATISTICAL_MURDER_FLAG, 
+         VIC_AGE_GROUP, VIC_SEX, VIC_RACE)
+```
+
+By picking these columns for my report, I have ensured that there will be no missing data.
+
+## New Summary of Data
+```{r new_summary}
+summary(nypd)
+```
+
+## My Visualizations
+### Incidents Over Time
+``` {r Incident_Trend_Over_Time}
+ggplot(nypd, aes(x = OCCUR_DATE)) +
+  geom_histogram(binwidth = 30, fill = "red") +
+  labs(title = "Trend of Incidents Over Time", x = "Date",
+       y = "Number of Incidents") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+As you can see, the number of shooting incidents skyrocketed a little bit after 2020. This may be because of the civil unrest following the death of George Floyd.
+
+### Incidents Across Boroughs
+``` {r boroughs}
+ggplot(nypd, aes(x = BORO)) +
+  geom_bar(fill = "blue") +
+  labs(title = "Incidents across Boroughs", x = "Boroughs", y = "Number of Incidents") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+Brooklyn seems to have the highest number of shooting incidents out of all of them. This is probably because Brooklyn has a history of gang violence.
+
+## Predicting Number of Incidents based on Race
+``` {r race}
+nypd_race <- nypd %>%
+  group_by(VIC_RACE) %>%
+  summarise(num_incidents = n(), .groups = 'drop')
+  
+model_race <- lm(num_incidents ~ VIC_RACE, data = nypd_race)
+nypd_race$predicted_incidents <- predict(model_race, newdata = nypd_race)
+
+ggplot(nypd_race, aes(x = VIC_RACE)) +
+  geom_bar(aes(y = num_incidents), stat = "identity", fill = "blue", alpha = 0.5) +
+  geom_point(aes(y = predicted_incidents), color = "red", size = 3) +
+  labs(title = "Actual vs Predicted Number of Incidents by Race", x = "Race", y = "Number of Incidents") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+```
+
+In this model, the red dots are the predicted number of incidents for each race, and the blue bars are the actual number of incidents for each race. As you can see, we can pretty accurately predict the number of incidents by race because the red dots are all on top of each blue bar. This model also tells us that Black people tend to be the most affected by shooting incidents. This may be due to socio-economic factors, policing practices, and other systemic issues.
+
+## Additional Questions
+
+These plots have raised additional questions for me to investigate, such as whether investigating seasonal patterns might reveal when shooting incidents are more likely to happen. Similarly, looking at the times of day these incidents occur could also help achieve this. Looking at the age group of each victim could also show us which groups are the most affected by shooting incidents. My race model has also raised some additional questions for me. For example, whether or not the number of incidents be predicted by borough. Overall, looking at these questions can help us get a clearer understanding of the factors behind these incidents.
+
+## Conclusion
+In conclusion, this report shows us the trends in NYPD shooting incidents over time, and across boroughs. As we have seen, there was a significant increase in shooting incidents after 2020, likely because of the civil unrest following the death of George Floyd. We also saw that Brooklyn had the highest number of shooting incidents compared to the Bronx, Manhattan, Queens, and Staten Island, possibly due to its history of gang violence. My personal bias, given that I already thought that Brooklyn was a more violent place, may have influenced my analysis of the data. However, I have mitigated this by relying only on what the plots show.
